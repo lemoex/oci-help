@@ -207,7 +207,7 @@ func sendMessage(name, text string) {
 	urlValues := url.Values{
 		"parse_mode": {"Markdown"},
 		"chat_id":    {tg_chatId},
-		"text":       {"*实例: *" + name + "\n" + "*状态: *" + text},
+		"text":       {"*甲骨文通知*\n名称: " + name + "\n" + "内容: " + text},
 	}
 	cli := http.Client{Timeout: 10 * time.Second}
 	_, err := cli.PostForm(tg_url, urlValues)
@@ -237,10 +237,15 @@ func launchInstance(node *Node) {
 	}
 
 	for {
+		printYellow("正在尝试新建实例......")
 		out, err := exec.Command(cmd, args...).CombinedOutput()
 		ret := string(out)
-		if err != nil {
-			text = "抢购失败, Command failed. " + err.Error() + "\n" + ret
+		// 防止 Ctrl + C 取消误报
+		if Cancel {
+			return
+		}
+		if err != nil && out == nil {
+			text = "抢购失败, " + err.Error() + "\n" + ret
 			printRed(text)
 			sendMessage(node.Name, text)
 			return
@@ -254,7 +259,7 @@ func launchInstance(node *Node) {
 		var result Result
 		err = json.Unmarshal([]byte(ret), &result)
 		if err != nil {
-			text = "抢购失败, Unmarshal failed. " + "\n" + ret
+			text = "抢购失败, " + "\n" + ret
 			printRed(text)
 			sendMessage(node.Name, text)
 			return
@@ -290,11 +295,14 @@ func random(min, max int) int {
 	return rand.Intn(max-min) + min
 }
 
+var Cancel bool = false
+
 func setCloseHandler() {
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
+		Cancel = true
 		fmt.Printf("\033[1;33;40m%s\033[0m\n", "已停止")
 		if name != "" {
 			sendMessage(name, "已停止")
