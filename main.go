@@ -27,7 +27,11 @@ var name string
 type Result struct {
 	Status  json.Number `json:"status"`
 	Message string      `json:"message"`
-	Data    interface{} `json:"data"`
+	Data    Data        `json:"data"`
+}
+type Data struct {
+	InstanceName string `json:"display-name"`
+	Shape        string `json:"shape"`
 }
 
 type Node struct {
@@ -61,10 +65,10 @@ func main() {
 
 func mainMenu() {
 	cmdClear()
-	fmt.Printf("\n\033[1;32;40m%s\033[0m\n\n", "欢迎使用甲骨文新建实例脚本")
-	fmt.Printf("\033[1;36;40m%s\033[0m %s\n", "1.", "查看新建记录")
-	fmt.Printf("\033[1;36;40m%s\033[0m %s\n", "2.", "开始新建实例")
-	fmt.Printf("\033[1;36;40m%s\033[0m %s\n", "3.", "Telegram bot 消息提醒")
+	fmt.Printf("\n\033[1;32;40m%s\033[0m\n\n", "欢迎使用甲骨文实例抢购脚本")
+	fmt.Printf("\033[1;36;40m%s\033[0m %s\n", "1.", "历史抢购实例任务")
+	fmt.Printf("\033[1;36;40m%s\033[0m %s\n", "2.", "新建抢购实例任务")
+	fmt.Printf("\033[1;36;40m%s\033[0m %s\n", "3.", "Telegram Bot 消息提醒")
 	fmt.Println("")
 	fmt.Print("请选择[1-3]: ")
 	var num int
@@ -82,13 +86,13 @@ func mainMenu() {
 func loadNode() {
 	cmdClear()
 	sections := cfg.Sections()
-	fmt.Printf("\n\033[1;32;40m%s\033[0m\n\n", "新建实例历史记录")
+	fmt.Printf("\n\033[1;32;40m%s\033[0m\n\n", "历史抢购实例任务")
 	for i := 1; i < len(sections); i++ {
 		fmt.Printf("\033[1;36;40m%d.\033[0m %s\n", i, sections[i].Name())
 	}
 	fmt.Printf("\n\033[1;36;40m%d.\033[0m %s\n", 0, "返回主菜单")
 	var num int
-	fmt.Print("\n请输入序号, 开始新建实例: ")
+	fmt.Print("\n请输入序号, 开始抢购实例: ")
 	fmt.Scanln(&num)
 	if num <= 0 || num >= len(sections) {
 		mainMenu()
@@ -120,7 +124,7 @@ func addNode() {
 		min_time   string
 		max_time   string
 	)
-	fmt.Printf("\n\033[1;32;40m%s\033[0m\n\n", "开始新建实例, 请按要求输入以下参数")
+	fmt.Printf("\n\033[1;32;40m%s\033[0m\n\n", "新建抢购实例任务, 请按要求输入以下参数")
 	fmt.Print("请随便输入一个名称(不能有空格): ")
 	fmt.Scanln(&name)
 	fmt.Print("请输入[availabilityDomain|availability_domain]: ")
@@ -174,7 +178,7 @@ func addNode() {
 
 func setTelegramBot() {
 	cmdClear()
-	fmt.Printf("\n\033[1;32;40m%s\033[0m\n\n", "Telegram bot 消息提醒配置")
+	fmt.Printf("\n\033[1;32;40m%s\033[0m\n\n", "Telegram Bot 消息提醒配置")
 	fmt.Println("Telegram Bot Token:", tg_token)
 	fmt.Println("Telegram User ID:", tg_chatId)
 	fmt.Printf("\n\033[1;36;40m%s\033[0m %s\n", "1.", "设置token和用户id")
@@ -214,7 +218,7 @@ func sendMessage(name, text string) {
 
 func launchInstance(node *Node) {
 	name = node.Name
-	text := "开始创建实例"
+	text := "开始抢购实例"
 	printGreen(text)
 	sendMessage(node.Name, text)
 	cmd := "oci"
@@ -233,17 +237,24 @@ func launchInstance(node *Node) {
 	}
 
 	for {
-		out, _ := exec.Command(cmd, args...).CombinedOutput()
+		out, err := exec.Command(cmd, args...).CombinedOutput()
 		ret := string(out)
+		if err != nil {
+			text = "抢购失败, Command failed. " + err.Error() + "\n" + ret
+			printRed(text)
+			sendMessage(node.Name, text)
+			return
+		}
+
 		pos := strings.Index(ret, "{")
 		if pos != -1 {
 			ret = ret[pos:]
 		}
 
 		var result Result
-		err := json.Unmarshal([]byte(ret), &result)
+		err = json.Unmarshal([]byte(ret), &result)
 		if err != nil {
-			text = "出现异常, " + ret
+			text = "抢购失败, Unmarshal failed. " + "\n" + ret
 			printRed(text)
 			sendMessage(node.Name, text)
 			return
@@ -253,13 +264,13 @@ func launchInstance(node *Node) {
 		case "500", "429":
 			printNone(result.Message)
 		default:
-			if result.Data != nil {
-				text = "实例创建成功"
+			if result.Data != (Data{}) {
+				text = "抢购成功, 实例名称: [" + result.Data.InstanceName + "]"
 				printGreen(text)
 				sendMessage(node.Name, text)
 				return
 			}
-			text = "出现异常, " + result.Message
+			text = "抢购失败, " + result.Message
 			printRed(text)
 			sendMessage(node.Name, text)
 			return
