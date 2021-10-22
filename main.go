@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -210,9 +211,17 @@ func sendMessage(name, text string) {
 		"text":       {"*甲骨文通知*\n名称: " + name + "\n" + "内容: " + text},
 	}
 	cli := http.Client{Timeout: 10 * time.Second}
-	_, err := cli.PostForm(tg_url, urlValues)
+	resp, err := cli.PostForm(tg_url, urlValues)
 	if err != nil {
-		printYellow("Telegram 消息提醒发送失败" + err.Error())
+		printYellow("Telegram 消息提醒发送失败: " + err.Error())
+		return
+	}
+	if resp.StatusCode != 200 {
+		body, err := ioutil.ReadAll(resp.Body)
+		if err == nil {
+			bodyStr := string(body)
+			printYellow("Telegram 消息提醒发送失败: " + bodyStr)
+		}
 	}
 }
 
@@ -240,31 +249,23 @@ func launchInstance(node *Node) {
 		printYellow("正在尝试新建实例......")
 		out, err := exec.Command(cmd, args...).CombinedOutput()
 		ret := string(out)
-		// 防止 Ctrl + C 取消误报
-		if Cancel {
-			return
-		}
 		if err != nil && out == nil {
-			text = "抢购失败, " + err.Error() + "\n" + ret
+			text = "出现异常: " + err.Error()
 			printRed(text)
 			sendMessage(node.Name, text)
 			return
 		}
-
 		pos := strings.Index(ret, "{")
 		if pos != -1 {
 			ret = ret[pos:]
 		}
-
 		var result Result
 		err = json.Unmarshal([]byte(ret), &result)
 		if err != nil {
-			text = "抢购失败, " + "\n" + ret
+			text = "出现异常: " + ret
 			printRed(text)
-			sendMessage(node.Name, text)
-			return
+			continue
 		}
-
 		switch result.Status {
 		case "500", "429":
 			printNone(result.Message)
@@ -295,14 +296,11 @@ func random(min, max int) int {
 	return rand.Intn(max-min) + min
 }
 
-var Cancel bool = false
-
 func setCloseHandler() {
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
-		Cancel = true
 		fmt.Printf("\033[1;33;40m%s\033[0m\n", "已停止")
 		if name != "" {
 			sendMessage(name, "已停止")
