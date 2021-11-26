@@ -80,9 +80,9 @@ func main() {
 	sendMessageUrl = "https://api.telegram.org/bot" + token + "/sendMessage"
 	rand.Seed(time.Now().UnixNano())
 
-	fmt.Printf("\n\033[1;32;40m%s\033[0m\n\n", "欢迎使用甲骨文实例创建工具")
-	fmt.Printf("\033[1;36;40m%s\033[0m %s\n", "1.", "开始创建实例")
-	fmt.Printf("\033[1;36;40m%s\033[0m %s\n", "2.", "获取实例IP地址")
+	fmt.Printf("\n\033[1;32m%s\033[0m\n\n", "欢迎使用甲骨文实例创建工具")
+	fmt.Printf("\033[1;36m%s\033[0m %s\n", "1.", "开始创建实例")
+	fmt.Printf("\033[1;36m%s\033[0m %s\n", "2.", "获取实例IP地址")
 	fmt.Println("")
 	fmt.Print("请选择[1-2]: ")
 	var num int
@@ -102,7 +102,7 @@ func CreateInstances(sections []*ini.Section, configFile string) {
 		if len(section.ChildSections()) > 0 {
 			provider = getProvider(configFile, section.Name(), "")
 
-			printf("\033[1;36;40m[%s]\033[0m\n", section.Name())
+			printf("\033[1;36m[%s]\033[0m\n", section.Name())
 
 			var SUM, NUM int32 = 0, 0
 			sendMessage(section.Name(), "开始创建")
@@ -123,7 +123,7 @@ func CreateInstances(sections []*ini.Section, configFile string) {
 
 			}
 
-			printf("\033[1;36;40m[%s], 创建总数: %d, 创建成功 %d , 创建失败 %d\033[0m\n", section.Name(), SUM, NUM, SUM-NUM)
+			printf("\033[1;36m[%s], 创建总数: %d, 创建成功 %d , 创建失败 %d\033[0m\n", section.Name(), SUM, NUM, SUM-NUM)
 
 			text := fmt.Sprintf("结束创建。创建总数: %d, 创建成功 %d , 创建失败 %d", SUM, NUM, SUM-NUM)
 			sendMessage(section.Name(), text)
@@ -162,7 +162,7 @@ func LaunchInstances(ads []identity.AvailabilityDomain) (sum, num int32) {
 		}
 	}
 
-	printf("\033[1;36;40m[%s] 开始创建...\033[0m\n", providerName)
+	printf("\033[1;36m[%s] 开始创建...\033[0m\n", providerName)
 	computeClient, err := core.NewComputeClientWithConfigurationProvider(provider)
 	helpers.FatalIfError(err)
 	setProxyOrNot(&computeClient.BaseClient)
@@ -246,7 +246,7 @@ func LaunchInstances(ads []identity.AvailabilityDomain) (sum, num int32) {
 			}
 		}
 
-		printf("\033[1;36;40m[%s] 第 %d 个实例正在创建, AD: %s\033[0m\n", providerName, pos+1, *adName)
+		printf("\033[1;36m[%s] 第 %d 个实例正在创建, AD: %s\033[0m\n", providerName, pos+1, *adName)
 
 		request.AvailabilityDomain = adName
 		createResp, err := computeClient.LaunchInstance(ctx, request)
@@ -256,14 +256,14 @@ func LaunchInstances(ads []identity.AvailabilityDomain) (sum, num int32) {
 			SUCCESS = true
 			num++ //成功个数+1
 
-			printf("\033[1;32;40m[%s] 第 %d 个实例创建成功, 实例名称: %s\033[0m\n", providerName, pos+1, *createResp.Instance.DisplayName)
+			printf("\033[1;32m[%s] 第 %d 个实例创建成功, 实例名称: %s\033[0m\n", providerName, pos+1, *createResp.Instance.DisplayName)
 			if EACH {
 				sendMessage(providerName, "创建成功，实例名称: "+*createResp.DisplayName)
 			}
 
 			ips := getInstancePublicIps(ctx, computeClient, networkClient, createResp.Instance.Id)
 			strIps := strings.Join(ips, ",")
-			printf("\033[1;32;40m[%s] 实例名称: %s, IP: %s\033[0m\n", providerName, *createResp.Instance.DisplayName, strIps)
+			printf("\033[1;32m[%s] 实例名称: %s, IP: %s\033[0m\n", providerName, *createResp.Instance.DisplayName, strIps)
 			if EACH {
 				sendMessage(providerName, "实例名称: "+*createResp.DisplayName+", IP: "+strIps)
 			}
@@ -290,7 +290,7 @@ func LaunchInstances(ads []identity.AvailabilityDomain) (sum, num int32) {
 				if isServErr {
 					errInfo = servErr.GetMessage()
 				}
-				printf("\033[1;31;40m[%s] 第 %d 个实例创建失败, Error: \033[0m%s\n", providerName, pos+1, errInfo)
+				printf("\033[1;31m[%s] 第 %d 个实例创建失败, Error: \033[0m%s\n", providerName, pos+1, errInfo)
 
 				SKIP_RETRY = false
 				if AD_NOT_FIXED && !EACH_AD {
@@ -302,7 +302,7 @@ func LaunchInstances(ads []identity.AvailabilityDomain) (sum, num int32) {
 				if isServErr {
 					errInfo = servErr.GetMessage()
 				}
-				printf("\033[1;31;40m[%s] 第 %d 个实例创建失败, Error: \033[0m%s\n", providerName, pos+1, errInfo)
+				printf("\033[1;31m[%s] 第 %d 个实例创建失败, Error: \033[0m%s\n", providerName, pos+1, errInfo)
 				if EACH {
 					sendMessage(providerName, "创建失败，Error: "+errInfo)
 				}
@@ -1097,7 +1097,7 @@ func sendMessage(name, text string) {
 		}
 		req, err := http.NewRequest(http.MethodPost, sendMessageUrl, strings.NewReader(data.Encode()))
 		if err != nil {
-			printf("\033[1;31;40mNewRequest Error: \033[0m%s\n", err.Error())
+			printf("\033[1;31mNewRequest Error: \033[0m%s\n", err.Error())
 		}
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
@@ -1106,7 +1106,7 @@ func sendMessage(name, text string) {
 
 		resp, err := client.HTTPClient.Do(req)
 		if err != nil {
-			printf("\033[1;31;40mTelegram 消息提醒发送失败, Error: \033[0m%s\n", err.Error())
+			printf("\033[1;31mTelegram 消息提醒发送失败, Error: \033[0m%s\n", err.Error())
 		} else {
 			if resp.StatusCode != 200 {
 				bodyBytes, err := ioutil.ReadAll(resp.Body)
@@ -1116,7 +1116,7 @@ func sendMessage(name, text string) {
 				} else {
 					error = string(bodyBytes)
 				}
-				printf("\033[1;31;40mTelegram 消息提醒发送失败, Error: \033[0m%s\n", error)
+				printf("\033[1;31mTelegram 消息提醒发送失败, Error: \033[0m%s\n", error)
 			}
 		}
 
