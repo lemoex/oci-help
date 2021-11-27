@@ -256,16 +256,18 @@ func LaunchInstances(ads []identity.AvailabilityDomain) (sum, num int32) {
 			SUCCESS = true
 			num++ //成功个数+1
 
-			printf("\033[1;32m[%s] 第 %d 个实例创建成功, 实例名称: %s\033[0m\n", providerName, pos+1, *createResp.Instance.DisplayName)
-			if EACH {
-				sendMessage(providerName, "创建成功，实例名称: "+*createResp.DisplayName)
+			// 获取实例公共IP
+			ips, err := getInstancePublicIps(ctx, computeClient, networkClient, createResp.Instance.Id)
+			var strIps string
+			if err != nil {
+				strIps = err.Error()
+			} else {
+				strIps = strings.Join(ips, ",")
 			}
 
-			ips := getInstancePublicIps(ctx, computeClient, networkClient, createResp.Instance.Id)
-			strIps := strings.Join(ips, ",")
-			printf("\033[1;32m[%s] 实例名称: %s, IP: %s\033[0m\n", providerName, *createResp.Instance.DisplayName, strIps)
+			printf("\033[1;32m[%s] 第 %d 个实例创建成功. 实例名称: %s, 公网IP: %s\033[0m\n", providerName, pos+1, *createResp.Instance.DisplayName, strIps)
 			if EACH {
-				sendMessage(providerName, "实例名称: "+*createResp.DisplayName+", IP: "+strIps)
+				sendMessage(providerName, fmt.Sprintf("第 %d 个实例创建成功\n实例名称: %s\n公网IP: %s", pos+1, *createResp.Instance.DisplayName, strIps))
 			}
 
 			sleepRandomSecond(minTime, maxTime)
@@ -282,27 +284,20 @@ func LaunchInstances(ads []identity.AvailabilityDomain) (sum, num int32) {
 			SKIP_RETRY := false
 
 			//isRetryable := common.IsErrorRetryableByDefault(err)
-			//fmt.Println("IsErrorRetryableByDefault", isRetryable)
-			isNetErr := common.IsNetworkError(err)
+			//isNetErr := common.IsNetworkError(err)
 			servErr, isServErr := common.IsServiceError(err)
-			if isNetErr || (isServErr && (servErr.GetHTTPStatusCode() == 409 || servErr.GetHTTPStatusCode() == 429 || (500 <= servErr.GetHTTPStatusCode() && servErr.GetHTTPStatusCode() < 505))) {
-				// 可重试
+
+			// API Errors: https://docs.cloud.oracle.com/Content/API/References/apierrors.htm
+
+			if isServErr && (400 <= servErr.GetHTTPStatusCode() && servErr.GetHTTPStatusCode() <= 405) ||
+				(servErr.GetHTTPStatusCode() == 409 && !strings.EqualFold(servErr.GetCode(), "IncorrectState")) ||
+				servErr.GetHTTPStatusCode() == 412 || servErr.GetHTTPStatusCode() == 413 || servErr.GetHTTPStatusCode() == 422 ||
+				servErr.GetHTTPStatusCode() == 431 || servErr.GetHTTPStatusCode() == 501 {
+				// 不可重试
 				if isServErr {
 					errInfo = servErr.GetMessage()
 				}
-				printf("\033[1;31m[%s] 第 %d 个实例创建失败, Error: \033[0m%s\n", providerName, pos+1, errInfo)
-
-				SKIP_RETRY = false
-				if AD_NOT_FIXED && !EACH_AD {
-					SKIP_RETRY_MAP[adIndex-1] = false
-				}
-
-			} else {
-				// 无需重试
-				if isServErr {
-					errInfo = servErr.GetMessage()
-				}
-				printf("\033[1;31m[%s] 第 %d 个实例创建失败, Error: \033[0m%s\n", providerName, pos+1, errInfo)
+				printf("\033[1;31m[%s] 创建失败, Error: \033[0m%s\n", providerName, errInfo)
 				if EACH {
 					sendMessage(providerName, "创建失败，Error: "+errInfo)
 				}
@@ -310,6 +305,18 @@ func LaunchInstances(ads []identity.AvailabilityDomain) (sum, num int32) {
 				SKIP_RETRY = true
 				if AD_NOT_FIXED && !EACH_AD {
 					SKIP_RETRY_MAP[adIndex-1] = true
+				}
+
+			} else {
+				// 可重试
+				if isServErr {
+					errInfo = servErr.GetMessage()
+				}
+				printf("\033[1;31m[%s] 创建失败, Error: \033[0m%s\n", providerName, errInfo)
+
+				SKIP_RETRY = false
+				if AD_NOT_FIXED && !EACH_AD {
+					SKIP_RETRY_MAP[adIndex-1] = false
 				}
 			}
 
@@ -918,7 +925,9 @@ func ListInstances(ctx context.Context, c core.ComputeClient) []core.Instance {
 
 func ListVnicAttachments(ctx context.Context, c core.ComputeClient, instanceId *string) ([]core.VnicAttachment, error) {
 	compartmentID, err := provider.TenancyOCID()
-	helpers.FatalIfError(err)
+	if err != nil {
+		return nil, err
+	}
 	req := core.ListVnicAttachmentsRequest{CompartmentId: &compartmentID}
 	if instanceId != nil && *instanceId != "" {
 		req.InstanceId = instanceId
@@ -1068,19 +1077,16 @@ func printf(format string, a ...interface{}) {
 }
 
 // 根据实例OCID获取公共IP
-func getInstancePublicIps(ctx context.Context, computeClient core.ComputeClient, networkClient core.VirtualNetworkClient, instanceId *string) (ips []string) {
-	var err error
-	var vnicAttachments []core.VnicAttachment
-	var vnic core.Vnic
-	vnicAttachments, err = ListVnicAttachments(ctx, computeClient, instanceId)
-	if err != nil {
-		printf("ListVnicAttachments error: %s\n", err.Error())
+func getInstancePublicIps(ctx context.Context, computeClient core.ComputeClient, networkClient core.VirtualNetworkClient, instanceId *string) (ips []string, err error) {
+	vnicAttachments, attachmentsErr := ListVnicAttachments(ctx, computeClient, instanceId)
+	if attachmentsErr != nil {
+		err = errors.New("获取失败")
 		return
 	}
 	for _, vnicAttachment := range vnicAttachments {
-		vnic, err = GetVnic(ctx, networkClient, vnicAttachment.VnicId)
-		if err != nil {
-			printf("GetVnic error: %s\n", err.Error())
+		vnic, vnicErr := GetVnic(ctx, networkClient, vnicAttachment.VnicId)
+		if vnicErr != nil {
+			printf("GetVnic error: %s\n", vnicErr.Error())
 			continue
 		}
 		ips = append(ips, *vnic.PublicIp)
