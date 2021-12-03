@@ -30,7 +30,6 @@ clean:
 $(zip_release): %.zip : %
 	@zip -du $(BUILD_DIR)/$(NAME)-$<-$(VERSION).zip -j -m $(BUILD_DIR)/$</$(NAME)*
 	@zip -du $(BUILD_DIR)/$(NAME)-$<-$(VERSION).zip *.ini
-	@-zip -du $(BUILD_DIR)/$(NAME)-$<-$(VERSION).zip README.md
 	@echo "✅ $(NAME)-$<-$(VERSION).zip"
 
 all: linux-amd64 darwin-amd64 windows-amd64 # Most used
