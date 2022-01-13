@@ -1429,7 +1429,7 @@ func createOrGetSubnetWithDetails(ctx context.Context, c core.VirtualNetworkClie
 	}
 
 	// create a new subnet
-	printf("开始创建Subnet（没有可用的Subnet，或指定的Subnet不存在）\n")
+	fmt.Printf("开始创建Subnet（没有可用的Subnet，或指定的Subnet不存在）\n")
 	// 子网名称为空，以当前时间为名称创建子网
 	if *displayName == "" {
 		displayName = common.String(time.Now().Format("subnet-20060102-1504"))
@@ -1505,7 +1505,7 @@ func createOrGetSubnetWithDetails(ctx context.Context, c core.VirtualNetworkClie
 	if err != nil {
 		return
 	}
-	printf("Subnet创建成功: %s\n", *r.Subnet.DisplayName)
+	fmt.Printf("Subnet创建成功: %s\n", *r.Subnet.DisplayName)
 	subnet = r.Subnet
 	return
 }
@@ -1546,7 +1546,7 @@ func createOrGetVcn(ctx context.Context, c core.VirtualNetworkClient) (core.Vcn,
 		}
 	}
 	// create a new VCN
-	printf("开始创建VCN（没有可用的VCN，或指定的VCN不存在）\n")
+	fmt.Println("开始创建VCN（没有可用的VCN，或指定的VCN不存在）")
 	if *displayName == "" {
 		displayName = common.String(time.Now().Format("vcn-20060102-1504"))
 	}
@@ -1560,7 +1560,7 @@ func createOrGetVcn(ctx context.Context, c core.VirtualNetworkClient) (core.Vcn,
 	if err != nil {
 		return vcn, err
 	}
-	printf("VCN创建成功: %s\n", *r.Vcn.DisplayName)
+	fmt.Printf("VCN创建成功: %s\n", *r.Vcn.DisplayName)
 	vcn = r.Vcn
 	return vcn, err
 }
@@ -1590,7 +1590,7 @@ func createOrGetInternetGateway(c core.VirtualNetworkClient, vcnID *string) (cor
 
 	listGWRespone, err := c.ListInternetGateways(ctx, listGWRequest)
 	if err != nil {
-		printf("Internet gateway list error: %s\n", err.Error())
+		fmt.Printf("Internet gateway list error: %s\n", err.Error())
 		return gateway, err
 	}
 
@@ -1599,7 +1599,7 @@ func createOrGetInternetGateway(c core.VirtualNetworkClient, vcnID *string) (cor
 		gateway = listGWRespone.Items[0]
 	} else {
 		//Create new Gateway
-		printf("开始创建Internet网关\n")
+		fmt.Printf("开始创建Internet网关\n")
 		enabled := true
 		createGWDetails := core.CreateInternetGatewayDetails{
 			CompartmentId: &oracle.Tenancy,
@@ -1614,11 +1614,11 @@ func createOrGetInternetGateway(c core.VirtualNetworkClient, vcnID *string) (cor
 		createGWResponse, err := c.CreateInternetGateway(ctx, createGWRequest)
 
 		if err != nil {
-			printf("Internet gateway create error: %s\n", err.Error())
+			fmt.Printf("Internet gateway create error: %s\n", err.Error())
 			return gateway, err
 		}
 		gateway = createGWResponse.InternetGateway
-		printf("Internet网关创建成功: %s\n", *gateway.DisplayName)
+		fmt.Printf("Internet网关创建成功: %s\n", *gateway.DisplayName)
 	}
 	return gateway, err
 }
@@ -1634,7 +1634,7 @@ func createOrGetRouteTable(c core.VirtualNetworkClient, gatewayID, VcnID *string
 	var listRTResponse core.ListRouteTablesResponse
 	listRTResponse, err = c.ListRouteTables(ctx, listRTRequest)
 	if err != nil {
-		printf("Route table list error: %s\n", err.Error())
+		fmt.Printf("Route table list error: %s\n", err.Error())
 		return
 	}
 
@@ -1651,7 +1651,7 @@ func createOrGetRouteTable(c core.VirtualNetworkClient, gatewayID, VcnID *string
 			routeTable = listRTResponse.Items[0]
 			//Default Route table needs route rule adding
 		} else {
-			printf("路由表未添加规则，开始添加Internet路由规则\n")
+			fmt.Printf("路由表未添加规则，开始添加Internet路由规则\n")
 			updateRTDetails := core.UpdateRouteTableDetails{
 				RouteRules: []core.RouteRule{rr},
 			}
@@ -1664,16 +1664,16 @@ func createOrGetRouteTable(c core.VirtualNetworkClient, gatewayID, VcnID *string
 			var updateRTResponse core.UpdateRouteTableResponse
 			updateRTResponse, err = c.UpdateRouteTable(ctx, updateRTRequest)
 			if err != nil {
-				printf("Error updating route table: %s\n", err)
+				fmt.Printf("Error updating route table: %s\n", err)
 				return
 			}
-			printf("Internet路由规则添加成功\n")
+			fmt.Printf("Internet路由规则添加成功\n")
 			routeTable = updateRTResponse.RouteTable
 		}
 
 	} else {
 		//No default route table found
-		printf("Error could not find VCN default route table, VCN OCID: %s Could not find route table.\n", *VcnID)
+		fmt.Printf("Error could not find VCN default route table, VCN OCID: %s Could not find route table.\n", *VcnID)
 	}
 	return
 }
@@ -1962,7 +1962,7 @@ func getInstanceVnics(instanceId *string) (vnics []core.Vnic, err error) {
 	for _, vnicAttachment := range vnicAttachments {
 		vnic, vnicErr := GetVnic(ctx, networkClient, vnicAttachment.VnicId)
 		if vnicErr != nil {
-			printf("GetVnic error: %s\n", vnicErr.Error())
+			fmt.Printf("GetVnic error: %s\n", vnicErr.Error())
 			continue
 		}
 		vnics = append(vnics, vnic)
@@ -2056,10 +2056,8 @@ func getInstancePublicIps(instanceId *string) (ips []string, err error) {
 	// 多次尝试，避免刚抢购到实例，实例正在预配获取不到公共IP。
 	var ins core.Instance
 	for i := 0; i < 100; i++ {
-		fmt.Println(i, ins.LifecycleState)
 		if ins.LifecycleState != core.InstanceLifecycleStateRunning {
 			ins, err = getInstance(instanceId)
-			fmt.Println("instance:", ins.LifecycleState, err)
 			if err != nil {
 				continue
 			}
@@ -2074,19 +2072,16 @@ func getInstancePublicIps(instanceId *string) (ips []string, err error) {
 
 		var vnicAttachments []core.VnicAttachment
 		vnicAttachments, err = ListVnicAttachments(ctx, computeClient, instanceId)
-		fmt.Println(vnicAttachments, err)
 		if err != nil {
 			continue
 		}
 		if len(vnicAttachments) > 0 {
 			for _, vnicAttachment := range vnicAttachments {
-				fmt.Println("vnicAttachment:", vnicAttachment.LifecycleState)
 				vnic, vnicErr := GetVnic(ctx, networkClient, vnicAttachment.VnicId)
 				if vnicErr != nil {
 					printf("GetVnic error: %s\n", vnicErr.Error())
 					continue
 				}
-				fmt.Println("vnic:", vnic.LifecycleState)
 				if vnic.PublicIp != nil && *vnic.PublicIp != "" {
 					ips = append(ips, *vnic.PublicIp)
 				}
