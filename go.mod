@@ -1,6 +1,6 @@
 module oci-help
 
-go 1.17
+go 1.18
 
 require (
 	github.com/oracle/oci-go-sdk/v54 v54.0.0
