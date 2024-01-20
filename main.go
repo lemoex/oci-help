@@ -498,7 +498,7 @@ func instanceDetails(instanceId *string) {
 		}
 		fmt.Println("--------------------")
 		fmt.Printf("\n\033[1;32m1: %s   2: %s   3: %s   4: %s   5: %s\033[0m\n", "启动", "停止", "重启", "终止", "更换公共IP")
-		fmt.Printf("\033[1;32m6: %s   7: %s   8:%s\033[0m\n", "升级/降级", "修改名称", "Oracle Cloud Agent 插件配置")
+		fmt.Printf("\033[1;32m6: %s   7: %s   8: %s\033[0m\n", "升级/降级", "修改名称", "Oracle Cloud Agent 插件配置")
 		var input string
 		var num int
 		fmt.Print("\n请输入需要执行操作的序号: ")
