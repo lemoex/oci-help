@@ -1,4 +1,4 @@
-# 甲骨文实例抢购教程
+# 甲骨文实例管理工具使用教程
 
 ## 获取程序
 - 如果需要在本地电脑运行该程序，根据自己电脑的CPU架构类型，打开下面的 `下载地址` 下载对应的文件即可。如果需要在服务器上运行该程序，那么根据服务器的CPU架构类型选择对应的文件下载到服务器即可。
@@ -47,3 +47,11 @@ screen -ls
 # 重新连接 Screen 终端
 screen -r oci-help
 ```
+
+
+## 🎉 感谢赞助
+
+本项目 CDN 加速及安全防护由 [Tencent EdgeOne](https://edgeone.ai/zh?from=github "Tencent EdgeOne") 赞助
+
+[![Tencent EdgeOne](https://edgeone.ai/media/34fe3a45-492d-4ea4-ae5d-ea1087ca7b4b.png)](https://edgeone.ai/zh?from=github)
+
